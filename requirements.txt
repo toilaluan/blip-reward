@@ -4,3 +4,7 @@ accelerate
 pandas
 peft
 wandb
+hf_transfer
+shedulefree
+datasets
+pillow
