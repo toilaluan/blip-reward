@@ -1,0 +1,4 @@
+lightning
+transformers
+accelerate
+pandas
