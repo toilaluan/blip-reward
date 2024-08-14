@@ -4,7 +4,7 @@ from torch import nn
 import torch.nn.functional as F
 from model import QformerAesthetic
 from peft import LoraConfig, TaskType
-
+import schedulefree
 
 class LitMain(L.LightningModule):
     def __init__(self, model: QformerAesthetic):
@@ -26,7 +26,7 @@ class LitMain(L.LightningModule):
         better_score = self.model(**better_inputs)
         worse_score = self.model(**worse_inputs)
         loss = self.loss_fn(better_score, worse_score)
-        self.log("train_loss", loss, prog_bar=True, on_epoch=True)
+        self.log("train_loss", loss, prog_bar=True, on_epoch=True, on_step=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
@@ -45,6 +45,7 @@ class LitMain(L.LightningModule):
         return super().on_validation_epoch_end()
 
     def configure_optimizers(self):
-        return torch.optim.AdamW(self.parameters(), lr=1e-5)
+        optimizer = schedulefree.AdamWScheduleFree(self.parameters(), lr=1e-4)
+        return optimizer
     
         

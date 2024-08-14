@@ -2,6 +2,7 @@ import torch.nn as nn
 from transformers import Blip2Processor, Blip2ForConditionalGeneration
 from typing import Optional, Tuple, Union
 import torch
+from peft import LoraConfig, TaskType, get_peft_model
 
 class QEncoder(Blip2ForConditionalGeneration):
     def forward(
@@ -62,27 +63,34 @@ class QEncoder(Blip2ForConditionalGeneration):
         ).last_hidden_state
         outputs = outputs[:, :n_query_tokens, :]
         outputs = outputs.mean(dim=1)
-        visual_embeds = language_model_inputs.mean(dim=1)
-        return torch.cat([outputs, visual_embeds], dim=1)
+        return outputs
 
 
 class QformerAesthetic(nn.Module):
     def __init__(self, pretrained_qformer=True, config=None):
         super(QformerAesthetic, self).__init__()
         if pretrained_qformer:
-            self.qencoder = QEncoder.from_pretrained("ethzanalytics/blip2-flan-t5-xl-sharded")
+            self.qencoder = QEncoder.from_pretrained("ethzanalytics/blip2-flan-t5-xl-sharded", torch_dtype=torch.bfloat16)
         else:
             self.qencoder = QEncoder(config)
         self.qencoder.language_model.decoder = None
         for param in self.qencoder.parameters():
             param.requires_grad = False
+        peft_config = LoraConfig(task_type=TaskType.SEQ_2_SEQ_LM, inference_mode=False, r=8, lora_alpha=32, lora_dropout=0.1)
+        self.qencoder.language_model = get_peft_model(self.qencoder.language_model, peft_config)
+        self.qencoder.language_model.print_trainable_parameters()
         self.out_dim = self.qencoder.config.text_config.d_model
-        self.qencoder.eval()
         self.head = nn.Sequential(
-            nn.Linear(self.out_dim*2, self.out_dim),
-            nn.ReLU(),
-            nn.Linear(self.out_dim, 1)
+            nn.Linear(self.out_dim, self.out_dim // 4),
+            nn.Dropout(0.1),
+            nn.Linear(self.out_dim // 4, 1)
         )
+        # initial MLP param
+        for name, param in self.head.named_parameters():
+            if 'weight' in name:
+                nn.init.normal_(param, mean=0.0, std=1.0/(self.out_dim+1))
+            if 'bias' in name:
+                nn.init.constant_(param, val=0)
     
     def forward(self, pixel_values, input_ids, attention_mask=None, **kwargs):
         hidden_embed = self.qencoder(pixel_values, input_ids, attention_mask)

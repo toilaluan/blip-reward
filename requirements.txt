@@ -2,3 +2,5 @@ lightning
 transformers
 accelerate
 pandas
+peft
+wandb
