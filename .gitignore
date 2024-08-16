@@ -6,3 +6,6 @@ lightning_logs
 *.ckpt
 env
 wandb
+hf_cache
+*.tar.gz
+*__pycache__
