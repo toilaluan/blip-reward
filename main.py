@@ -1,12 +1,12 @@
-from data.pair_dataset import PairDataset, collate_fn
-from model import QformerAesthetic
-from florence_model import FlorenceAestheticModel
+from data.binary_vqa_dataset import BinaryVQADataset
 from torch.utils.data import DataLoader
 from pl_main import LitMain
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import Callback, ModelCheckpoint, LearningRateMonitor
 from lightning.pytorch.loggers import WandbLogger
 import argparse
+from transformers import AutoProcessor
+from PIL import Image
 
 
 def parse_args():
@@ -53,7 +53,7 @@ callbacks = [
     MyPrintingCallback(),
     ModelCheckpoint(
         monitor="val_loss",
-        dirpath="/workspace/t5-reward/checkpoints",
+        dirpath="checkpoints",
         filename="{epoch}-{val_loss:.2f}",
         save_top_k=3,
     ),
@@ -62,32 +62,57 @@ callbacks = [
 
 args = parse_args()
 
-# model = QformerAesthetic()
-model = FlorenceAestheticModel()
 
-data_root = "dataset/synthetic_ds"
+data_root = "dataset/BinaryVQA2"
 
-train_dataset = PairDataset(data_root, mode="train")
-val_dataset = PairDataset(data_root, mode="val")
+train_dataset = BinaryVQADataset(data_root, mode="train")
+print(train_dataset[0])
+val_dataset = BinaryVQADataset(data_root, mode="val")
+
+processor = AutoProcessor.from_pretrained(
+    "microsoft/Florence-2-base", trust_remote_code=True
+)
+
+
+def collate_fn(batch):
+    questions = [item["question"] for item in batch]
+    answers = [str(item["answer"]) for item in batch]
+    image_files = [Image.open(item["image_file"]).convert("RGB") for item in batch]
+    inputs = processor(
+        text=questions,
+        images=image_files,
+        return_tensors="pt",
+        padding=True,
+        truncation=True,
+    )
+    labels = processor.tokenizer(
+        text=answers,
+        return_tensors="pt",
+        padding=True,
+        truncation=True,
+        return_token_type_ids=False,
+    )
+    return inputs, labels
 
 
 train_dataloader = DataLoader(
     train_dataset,
     batch_size=args.batch_size,
     shuffle=True,
-    num_workers=4,
+    num_workers=8,
     collate_fn=collate_fn,
 )
 val_dataloader = DataLoader(
     val_dataset,
     batch_size=args.batch_size,
     shuffle=True,
-    num_workers=1,
+    num_workers=8,
     collate_fn=collate_fn,
 )
+print(next(iter(train_dataloader)))
+print(len(train_dataloader), len(val_dataloader))
 
-
-lit_main = LitMain(model)
+lit_main = LitMain()
 
 wandb_logger.watch(lit_main, log_freq=500)
 

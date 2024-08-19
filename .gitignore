@@ -9,3 +9,4 @@ wandb
 hf_cache
 *.tar.gz
 *__pycache__
+dataset/*

@@ -8,3 +8,6 @@ hf_transfer
 shedulefree
 datasets
 pillow
+dataset
+*.jpeg
+*.jpg
