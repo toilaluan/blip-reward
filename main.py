@@ -1,4 +1,5 @@
 from data.binary_vqa_dataset import BinaryVQADataset
+from data.large_vqa import LargeVQADataset
 from torch.utils.data import DataLoader
 from pl_main import LitMain
 from pytorch_lightning import Trainer
@@ -76,13 +77,12 @@ callbacks = [
 
 args = parse_args()
 
+train_dataset = LargeVQADataset("dataset/large_vqa", mode="train")
 
-data_root = "dataset/BinaryVQA2"
 
-train_dataset = BinaryVQADataset(data_root, mode="train")
+val_dataset = BinaryVQADataset("dataset/BinaryVQA2", mode="val")
+
 print(train_dataset[0])
-val_dataset = BinaryVQADataset(data_root, mode="val")
-
 processor = AutoProcessor.from_pretrained(
     "microsoft/Florence-2-base", trust_remote_code=True, revision='refs/pr/6'
 )

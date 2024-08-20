@@ -1,6 +1,6 @@
 import pytorch_lightning as L
 import torch
-from torch import nn
+import torch.nn as nn
 import torch.nn.functional as F
 from peft import LoraConfig, TaskType
 import schedulefree
@@ -9,7 +9,7 @@ from torchmetrics import F1Score, Recall, Precision
 class LitMain(L.LightningModule):
     def __init__(
         self,
-        pretrained_model_name="microsoft/Florence-2-base",
+        pretrained_model_name="toilaluan/binary_vqa2",
         torch_dtype=torch.float32,
     ):
         super().__init__()
@@ -18,12 +18,11 @@ class LitMain(L.LightningModule):
         )
         for param in self.model.parameters():
           param.requires_grad = False
-        # for param in self.model.language_model.model.decoder.parameters():
-        #     param.requires_grad = True
-        # for param in self.model.language_model.lm_head.parameters():
-        #     param.requires_grad = True
-        self.model.language_model.lm_head = nn.Linear(self.model.language_model.config.d_model, 1)
-        self.model.language_model.register_buffer("final_logits_bias", torch.zeros((1, 1)))
+        for param in self.model.language_model.model.decoder.layers[-3:].parameters():
+            param.requires_grad = True
+        for param in self.model.language_model.lm_head.parameters():
+            param.requires_grad = True
+        self.model.language_model.final_logits_bias.requires_grad = True
         self.recall_cal = Recall(task="binary")
         self.prec_cal = Precision(task="binary")
         self.f1_cal = F1Score(task="binary")
@@ -72,5 +71,5 @@ class LitMain(L.LightningModule):
         return loss
 
     def configure_optimizers(self):
-        optimizer = schedulefree.AdamWScheduleFree(self.parameters(), lr=1e-4)
+        optimizer = schedulefree.AdamWScheduleFree(self.parameters(), lr=1e-4, weight_decay=1e-4)
         return optimizer
