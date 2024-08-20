@@ -9,12 +9,12 @@ from torchmetrics import F1Score, Recall, Precision
 class LitMain(L.LightningModule):
     def __init__(
         self,
-        pretrained_model_name="toilaluan/binary_vqa2",
+        pretrained_model_name="toilaluan/Florence-2-large-binary-vqa",
         torch_dtype=torch.float32,
     ):
         super().__init__()
         self.model = AutoModelForCausalLM.from_pretrained(
-            pretrained_model_name, torch_dtype=torch_dtype, trust_remote_code=True
+            pretrained_model_name, torch_dtype=torch_dtype, trust_remote_code=True, ignore_mismatched_sizes=True
         )
         for param in self.model.parameters():
           param.requires_grad = False
